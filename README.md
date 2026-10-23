@@ -2,7 +2,7 @@
 
 ### Project Group M: [insert names here]
 
-ReadMe (tbc)
+This project is in progress! Check back later for further work.
 
 ### Introduction
 This Github repository contains the code and data files for our project. We analysed data from the fictional Midland Premier League and applied various statistical methods from the MTH6134 module, interpreted results and made inferences based on our models.
