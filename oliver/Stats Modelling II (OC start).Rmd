@@ -1,0 +1,128 @@
+---
+title: "Stats Modelling II Project - EDA + Initial Modelling"
+output: html_document
+date: "2026-10-16"
+author: "Oliver Cheung"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data and library import}
+
+rm(list = ls())
+
+library(knitr)
+library(tidyverse)
+library(haven)
+library(survey)
+library(ggplot2)
+library(dplyr)
+library(labelled)
+
+
+matches = read.csv('ashford_matches.csv')
+players = read.csv('league_players.csv')
+
+```
+
+
+
+```{r matches boxplots}
+
+# Select numeric variables
+numeric_data <- players[sapply(players, is.numeric)]
+
+# Create a boxplot for each numeric variable
+for (var in names(numeric_data)) {
+  boxplot(numeric_data[[var]],
+          main = paste("Boxplot of", var),
+          ylab = var,
+          col = "lightblue")
+}
+```
+
+```{r players boxplots}
+
+# Create a dummy variable to represent home_away as a binary numeric variable
+
+# Select numeric variables
+numeric_data <- players[sapply(players, is.numeric)]
+
+# Create a boxplot for each numeric variable
+for (var in names(numeric_data)) {
+  boxplot(numeric_data[[var]],
+          main = paste("Boxplot of", var),
+          ylab = var,
+          col = "lightblue")
+}
+
+
+
+
+```
+
+
+```{r scatter plots}
+
+pairs(matches[, 2:4])
+pairs(players[, 3:8])
+```
+
+In the 'Matches' dataset, there seems to be some relation between goals_scored/opponent_rank and goals_conceded/opponent_rank. We investigate this further below by fitting a Normal Linear Model to the data with opponent_rank as the response:
+
+```{r lm}
+
+model1 = lm(opponent_rank~goals_scored+goals_conceded, data=matches)
+
+summary(model1)
+
+
+```
+
+We observe that both goals_scored and goals_conceded are significant to the 5% level.
+Now we plot residuals and check the Q-Q plot:
+
+```{r plots}
+
+plot(model1$fitted, rstudent(model1), xlab='Fitted values', ylab='Studentized residuals')
+abline(h=0, lwd=2)
+
+qqnorm(rstudent(model1), main=NULL)
+qqline(rstudent(model1), lwd=2)
+
+```
+
+```{r box-cox}
+
+library(MASS)
+boxcox(model1, lambda=seq(-30, 30, by=0.01))
+
+#selecting lambda=0.5:
+model1_bc = lm(Weight^(0.5)~Height, data=matches)
+summary(model1_bc)
+
+
+
+```
+
+
+
+plot(chw_bc_fit$fitted, rstudent(chw_bc_fit), xlab='Fitted values', ylab='Studentised residuals')
+abline(h=0, lwd=2)
+
+which_large = (1:nrow(chw_data))[abs(rstudent(chw_bc_fit))>2]
+text(chw_bc_fit$fitted[which_large], rstudent(chw_bc_fit)[which_large], labels=(1:nrow(chw_data))[which_large])
+
+qqnorm(rstudent(chw_bc_fit))
+qqline(rstudent(chw_bc_fit), lwd=2)
+
+plot(chw_data$Height, chw_data$Weight^(-10))
+abline(chw_bc_fit)
+
+plot(chw_bc_fit, 4)
+abline(h=8/(30-2*2), lty=2)
+
+```
+
