@@ -12,7 +12,8 @@ This Github repository contains the code and data files for our project. We anal
 2. Code Files (R/RMarkdown):
     1. [Oliver](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/oliver)
     2. [Kimran](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/kimran)
-    3. [Chamath](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/chamath)  
+    3. [Chamath](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/chamath)
+    4. [Kevin](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/kevin)
 3. [Final Report]()
 
 ### Main Results
