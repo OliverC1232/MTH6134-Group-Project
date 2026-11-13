@@ -1,0 +1,50 @@
+## MTH6134 group project - week 2 linear regression
+#### load the data ####
+
+players <- read.csv("league_players.php")
+matches <- read.csv("ashford_matches.php")
+
+dim(players)
+dim(matches)
+
+#### looking at the data ####
+
+head(players)
+summary(players)
+
+head(matches)
+summary(matches)
+
+# about 19% of players got injured this season
+mean(players$injured)
+
+
+#### plots ####
+
+# most players are somewhere between 21 and 29
+hist(players$age,
+     main = "Age of players",
+     xlab = "Age")
+
+# keepers play the most minutes, forwards the least (they get subbed more)
+boxplot(minutes_played ~ position, data = players,
+        main = "Minutes played by position",
+        xlab = "Position", ylab = "Minutes")
+
+# ashford score more at home than away
+boxplot(goals_scored ~ home_away, data = matches,
+        main = "Ashford goals scored - home vs away",
+        xlab = "", ylab = "Goals scored")
+
+
+#### linear model ####
+
+# does playing at home and how good the opponent is change how many goals ashford score?
+# opponent_rank: 1 = top of the league, 24 = bottom
+model1 <- lm(goals_scored ~ home_away + opponent_rank, data = matches)
+summary(model1)
+
+# home: about 0.87 more goals than away (p = 0.026)
+# opponent_rank: about 0.07 more goals for each place lower the opponent finished (p = 0.015)
+# R-squared is only 0.21 so lots of the variation isn't explained
+# goals are counts so a poisson model might fit better later on
