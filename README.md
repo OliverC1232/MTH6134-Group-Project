@@ -14,6 +14,7 @@ This Github repository contains the code and data files for our project. We anal
     2. [Kimran](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/kimran)
     3. [Chamath](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/chamath)
     4. [Kevin](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/kevin)
+    5. [Maiwand](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/maiwand)
 3. [Final Report]()
 
 ### Main Results
