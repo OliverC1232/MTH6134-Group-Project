@@ -55,3 +55,6 @@ summary(model1)
 # opponent_rank: about 0.07 more goals for each place lower the opponent finished (p = 0.015)
 # R-squared is only 0.21 so lots of the variation isn't explained
 # goals are counts so a poisson model might fit better later on
+# minutes played is continuous, so it suits a linear model better
+model2 <- lm(minutes_played ~ position + age + training_load, data = players)
+summary(model2)
