@@ -7,6 +7,13 @@ matches <- read.csv("ashford_matches.php")
 dim(players)
 dim(matches)
 
+#### variable types ####
+# players: team, position = categorical | injured = binary (0/1)
+#          training_load = ordinal (1-5) | prev_injuries = count
+#          age, minutes_played, bmi = numerical (continuous)
+# matches: home_away = binary | goals_scored, goals_conceded = counts
+#          opponent_rank = ordinal (1-24)
+
 #### looking at the data ####
 
 head(players)
