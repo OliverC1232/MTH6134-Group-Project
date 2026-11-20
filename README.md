@@ -17,15 +17,24 @@ This Github repository contains the code and data files for our project. We anal
     5. [Maiwand](https://github.com/OliverC1232/MTH6134-Group-Project/tree/main/maiwand)
 3. [Final Report]()
 
-### Main Results
+### Main Questions
+1. How does home/away conditions and the strength of opponent affect the number of goals Ashford United score/concede (this ex
+2. What are the key factors affecting the player's risk of injury? Could this be explained by a link between position and training load?
 
-...
+
+OC investigating - likelihood/rate of goals scored, what factors are most influential?
+More specifically for injury - which positions are being overworked and should be targeted in future transfers?
+
 
 
 ### Contributions:
 Oliver:
+
 Kimran:
+
 Chamath:
+
 Kevin:
+
 Maiwand:
 
