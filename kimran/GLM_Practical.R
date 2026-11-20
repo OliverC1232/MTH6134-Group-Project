@@ -1,11 +1,11 @@
-## MTH6134 group project - GLM practical (Midland Premier League)
+## GLM practical 
 library(MASS)
 pl <- read.csv("league_players.csv")
 m  <- read.csv("ashford_matches.csv")
 pl$position <- factor(pl$position, levels = c("DEF", "GK", "MID", "FWD"))
 m$home_away <- factor(m$home_away, levels = c("Away", "Home"))
 
-## 1 Player injuries (binomial GLM)
+## Player injuries (binomial GLM)
 table(pl$prev_injuries, pl$injured)
 full.glm <- glm(injured ~ age + minutes_played + training_load + prev_injuries + bmi + position,
                 family = binomial, data = pl)
@@ -29,7 +29,7 @@ pl$fit <- fitted(inj.glm)
 grp <- cut(pl$fit, quantile(pl$fit, 0:10/10), include.lowest = TRUE)
 cbind(obs = tapply(pl$injured, grp, sum), exp = round(tapply(pl$fit, grp, sum), 1))
 
-## 2 Ashford goals scored (Poisson GLM)
+## Ashford goals scored (Poisson GLM)
 plot(m$opponent_rank, m$goals_scored, pch = ifelse(m$home_away == "Home", 19, 1),
      xlab = "Opponent final rank (1 = top)", ylab = "Goals scored by Ashford")
 legend("topleft", pch = c(19, 1), legend = c("Home", "Away"))
