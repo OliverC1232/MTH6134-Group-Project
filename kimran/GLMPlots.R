@@ -1,4 +1,4 @@
-## Diagnostic plots for the two GLMs (base R only)
+##  plots for the two GLMs
 pl <- read.csv("league_players.csv")
 m  <- read.csv("ashford_matches.csv")
 m$home_away <- factor(m$home_away, levels = c("Away", "Home"))
@@ -9,7 +9,7 @@ ink <- "grey20"; mute <- "grey55"; hl <- "#C0392B"; pt <- "#2C6FB7"
 par_set <- function() par(mfrow = c(1, 3), mar = c(4.5, 4.5, 3, 1), las = 1,
                           col.axis = ink, col.lab = ink, fg = mute, cex.main = 1.1, font.main = 1)
 
-## ---------- Figure 1: injury model (binomial) ----------
+## =Figure 1: injury model (binomial) 
 png("diag_injury.png", width = 1500, height = 520, res = 130)
 par_set()
 # (a) Binned residuals: average raw residual in 20 bins of fitted probability
@@ -35,7 +35,7 @@ top <- order(cdi, decreasing = TRUE)[1:3]
 text(top, cdi[top], top, pos = 3, cex = 0.8, col = ink)
 dev.off()
 
-## ---------- Figure 2: goals model (Poisson) ----------
+## Figure 2: goals model (Poisson)
 png("diag_goals.png", width = 1500, height = 520, res = 130)
 par_set()
 rd <- residuals(goals.glm, "deviance"); cdg <- cooks.distance(goals.glm)
