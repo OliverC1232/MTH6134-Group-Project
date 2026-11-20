@@ -1,0 +1,335 @@
+---
+title: "Analysis 2: Training load, age and the risk of injury"
+subtitle: "Meridian Analytics for Ashford United FC -- Midland Premier League 2023/24"
+author: "Group M"
+output: html_document
+geometry: margin=2cm
+fontsize: 11pt
+---
+
+<!-- Summary:
+Across the league, a heavier training load is associated with a much higher chance of injury for
+older players but not for younger ones. For a 30-year-old, each extra level of training load
+multiplies the odds of injury by about 2.2 (95% CI 1.5 to 3.0), while for players in their early
+twenties there is no evidence of any effect. Each previous injury multiplies the odds by about 1.7.
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.pos = "!htb", fig.align = "center", out.width = "100%")
+
+# Helper functions
+fmt_p  <- function(p) ifelse(p < 0.001, "<0.001", sprintf("%.3f", p))
+pct    <- function(x) sprintf("%.0f%%", 100 * x)
+f2     <- function(x) sprintf("%.2f", x)
+ci_txt <- function(l, u, f = f2) paste0(f(l), "--", f(u))
+inv_logit <- function(eta) 1 / (1 + exp(-eta))
+```
+
+```{r data}
+# Read and prepare player data
+players <- read.csv("league_players.csv", stringsAsFactors = TRUE)
+
+# Centre age at 25 and training load at 3 so that main effects refer to a typical player
+players$age_c     <- players$age - 25
+players$load_c    <- players$training_load - 3
+players$matches90 <- players$minutes_played / 90   # minutes rescaled to full-match equivalents
+
+# Bands used only for exploratory plots and model checking (not in the model itself)
+players$age_band  <- cut(players$age, breaks = c(16, 24, 28, 40),
+                         labels = c("17-24", "25-28", "29+"))
+players$load_band <- factor(ifelse(players$training_load <= 2, "1-2", players$training_load),
+                            levels = c("1-2", "3", "4", "5"))
+
+n_players <- nrow(players)
+n_inj     <- sum(players$injured)
+```
+
+```{r eda, include = FALSE}
+# Further EDA summary
+summary(players)
+prop_al <- with(players, tapply(injured, list(age_band, load_band), mean))
+n_al    <- with(players, table(age_band, load_band))
+prop_al; n_al
+
+pos_rate <- with(players, tapply(injured, position, mean))
+pos_rate
+with(players, tapply(injured, prev_injuries, mean))
+with(players, tapply(injured, cut(bmi, quantile(bmi), include.lowest = TRUE), mean))
+with(players, tapply(injured, cut(matches90, quantile(matches90), include.lowest = TRUE), mean))
+with(players, tapply(injured, team, mean))
+
+cor_mat <- cor(players[, c("age", "minutes_played", "training_load", "prev_injuries", "bmi")])
+round(cor_mat, 2)
+cor_max <- max(abs(cor_mat[upper.tri(cor_mat)]))
+
+# Observed (empirical) log-odds of injury by number of previous injuries
+y_prev <- tapply(players$injured, players$prev_injuries, sum)
+n_prev <- tapply(players$injured, players$prev_injuries, length)
+elogit_prev <- log((y_prev + 0.5) / (n_prev - y_prev + 0.5))
+```
+
+## Example Question:
+
+**Is a player's chance of being injured during the season associated with their weekly training load, and does that association depend on the player's age, once injury history and other player characteristics are allowed for?**
+
+Injuries are costly to the club, and training load is the one variable here that Ashford directly controls. A finding about who is more likely to be vulnerable to heavy training is therefore a useful insight. Ashford's own squad (25 players, 4 injuries) is too small to model reliably, so we used all `r n_players` players in the league and then applied the fitted model to Ashford's squad.
+
+
+
+```{r fig1, fig.width = 7, fig.height = 2.6, fig.cap = "(a) Observed proportion injured by training load and age group (loads 1 and 2 combined because few players train at load 1). (b) Observed log-odds of injury, $\\log\\{(y+0.5)/(n-y+0.5)\\}$, by number of previous injuries; $n$ is the number of players."}
+par(mfrow = c(1, 2), mar = c(4, 4, 1.2, 0.5), cex = 0.75)
+cols_age <- c("grey55", "steelblue", "firebrick")
+matplot(1:4, t(prop_al), type = "b", pch = 15:17, lty = 1, lwd = 1.5, col = cols_age,
+        xaxt = "n", ylim = c(0, 0.7), xlab = "Training load", ylab = "Proportion injured")
+axis(1, at = 1:4, labels = levels(players$load_band))
+legend("topleft", legend = paste("Age", levels(players$age_band)), col = cols_age,
+       pch = 15:17, lty = 1, bty = "n")
+mtext("(a)", side = 3, adj = 0, line = 0.2)
+plot(0:4, elogit_prev, type = "b", pch = 19, ylim = c(-2.5, 0),
+     xlab = "Previous injuries (last three seasons)", ylab = "Observed log-odds of injury")
+text(0:4, elogit_prev, paste0("n=", n_prev), pos = 4, cex = 0.8)
+mtext("(b)", side = 3, adj = 0, line = 0.2)
+```
+
+
+
+## Model selection
+
+```{r models, include = FALSE}
+# Start from all player-level covariates; backward elimination with drop1
+m0 <- glm(injured ~ 1, family = binomial, data = players)
+m1 <- glm(injured ~ position + age_c + matches90 + load_c + prev_injuries + bmi,
+          family = binomial, data = players)
+summary(m1)
+drop1(m1, test = "Chisq")          # matches90 least useful -> remove
+m2 <- update(m1, . ~ . - matches90)
+drop1(m2, test = "Chisq")          # bmi least useful -> remove
+m3 <- update(m2, . ~ . - bmi)
+drop1(m3, test = "Chisq")          # position not significant -> remove
+m4 <- update(m3, . ~ . - position)
+drop1(m4, test = "Chisq")          # all remaining terms significant
+summary(m4)
+
+# Check functional form and club on the main-effects model
+c_loadF <- update(m4, . ~ . - load_c + factor(training_load))         # load as 5-level factor
+c_prevF <- update(m4, . ~ . - prev_injuries + factor(prev_injuries))  # prev. injuries as factor
+c_age2  <- update(m4, . ~ . + I(age_c^2))                             # curvature in age
+c_club  <- update(m4, . ~ . + team)                                   # club differences
+
+# Interactions among the retained terms
+m4_int2 <- update(m4, . ~ .^2)     # all two-way interactions
+anova(m4, m4_int2, test = "Chisq")
+drop1(m4_int2, test = "Chisq")     # age_c:load_c is the important one
+m5 <- glm(injured ~ age_c * load_c + prev_injuries, family = binomial, data = players)
+
+# Confirm nothing else is needed given M5
+c5_lp   <- update(m5, . ~ . + load_c:prev_injuries)
+c5_ap   <- update(m5, . ~ . + age_c:prev_injuries)
+c5_old  <- update(m5, . ~ . + position + bmi + matches90)   # re-add the dropped terms
+c5_club <- update(m5, . ~ . + team)
+summary(m5)
+```
+
+```{r table1-build, include = FALSE}
+# Build the model-selection (decisions) table
+lr <- function(small, big) {
+  a <- anova(small, big, test = "Chisq")
+  c(a$Deviance[2], a$Df[2], a$`Pr(>Chi)`[2])
+}
+mods <- list(M0 = m0, M1 = m1, M2 = m2, M3 = m3, M4 = m4, loadF = c_loadF, prevF = c_prevF,
+             age2 = c_age2, club = c_club, M5 = m5, lp = c5_lp, ap = c5_ap, old = c5_old,
+             club5 = c5_club)
+tests <- rbind(c(NA, NA, NA), lr(m0, m1), lr(m2, m1), lr(m3, m2), lr(m4, m3),
+               lr(m4, c_loadF), lr(m4, c_prevF), lr(m4, c_age2), lr(m4, c_club),
+               lr(m4, m5), lr(m5, c5_lp), lr(m5, c5_ap), lr(m5, c5_old), lr(m5, c5_club))
+colnames(tests) <- c("LR", "df", "p")
+rownames(tests) <- names(mods)
+
+labels <- c("M0: intercept only",
+            "M1: position + age + minutes + load + prev. inj. + BMI",
+            "M2: M1 $-$ minutes", "M3: M2 $-$ BMI", "M4: M3 $-$ position",
+            "M4, load as 5-level factor", "M4, prev. injuries as factor",
+            "M4 + age$^2$", "M4 + club (23 df)",
+            "**M5: M4 + age $\\times$ load**",
+            "M5 + load $\\times$ prev. inj.", "M5 + age $\\times$ prev. inj.",
+            "M5 + position, BMI, minutes", "M5 + club (23 df)")
+compared <- c("", "M0", "M1", "M2", "M3", "M4", "M4", "M4", "M4", "M4", "M5", "M5", "M5", "M5")
+decision <- c("", "Start", "Drop", "Drop", "Drop", "Keep linear", "Keep linear", "Not needed",
+              "Not needed", "**Add**", "Not added$^\\dagger$", "Not added", "Not needed",
+              "Not needed")
+tab1 <- data.frame(
+  Model       = labels,
+  `Resid. dev.` = sprintf("%.1f", sapply(mods, deviance)),
+  df          = sapply(mods, df.residual),
+  AIC         = sprintf("%.1f", sapply(mods, AIC)),
+  `vs`        = compared,
+  `LRT (df)`  = ifelse(is.na(tests[, "LR"]), "",
+                       sprintf("%.2f (%d)", tests[, "LR"], as.integer(tests[, "df"]))),
+  p           = ifelse(is.na(tests[, "p"]), "", fmt_p(tests[, "p"])),
+  Decision    = decision,
+  check.names = FALSE, row.names = NULL)
+```
+
+\begingroup\small
+
+```{r table1}
+knitr::kable(tab1, align = "lrrrcrrl",
+             caption = "Model-selection path. Each LRT compares the model in that row with the model named in the vs column. The final model is in bold.")
+```
+
+\endgroup
+
+## Results
+
+```{r results-build, include = FALSE}
+# Final model: estimates, Wald 95% CIs, odds ratios
+cs <- coef(summary(m5))
+ci <- confint.default(m5)           # Wald intervals: estimate +/- 1.96 SE
+exp(cbind(OR = coef(m5), ci))
+
+# Linear combination w'beta with SE from vcov(), for effects that depend on the interaction
+lin_comb <- function(w, model = m5) {
+  b <- coef(model); V <- vcov(model)
+  w_full <- setNames(rep(0, length(b)), names(b)); w_full[names(w)] <- w
+  est <- sum(w_full * b)
+  se  <- sqrt(drop(t(w_full) %*% V %*% w_full))
+  c(est = est, se = se, OR = exp(est), lower = exp(est - 1.96 * se),
+    upper = exp(est + 1.96 * se), p = 2 * pnorm(-abs(est / se)))
+}
+load_or <- function(age)  lin_comb(c(load_c = 1, "age_c:load_c" = age - 25))   # +1 load level
+age5_or <- function(load) lin_comb(c(age_c = 5, "age_c:load_c" = 5 * (load - 3)))  # +5 years
+
+# Predicted probability with 95% CI (computed on the logit scale, then transformed)
+pred_prob <- function(age, load, prev = 0, model = m5) {
+  nd <- data.frame(age_c = age - 25, load_c = load - 3, prev_injuries = prev)
+  pr <- predict(model, newdata = nd, type = "link", se.fit = TRUE)
+  data.frame(age = age, load = load, prev = prev, fit = inv_logit(pr$fit),
+             lower = inv_logit(pr$fit - 1.96 * pr$se.fit),
+             upper = inv_logit(pr$fit + 1.96 * pr$se.fit))
+}
+
+ages_der <- c(20, 30, 33)
+der <- t(sapply(ages_der, load_or))
+lo20 <- load_or(20); lo25 <- load_or(25); lo30 <- load_or(30); lo33 <- load_or(33)
+a5_3 <- age5_or(3);  a5_5 <- age5_or(5)
+age_zero <- 25 - coef(m5)["load_c"] / coef(m5)["age_c:load_c"]   # age where load effect = 0
+pp30 <- pred_prob(30, c(3, 5)); pp20 <- pred_prob(20, c(3, 5))
+
+tab2 <- data.frame(
+  Term = c("Intercept (odds for age 25, load 3, no prev. injuries)",
+           "Age (per year), at load 3", "Training load (per level), at age 25",
+           "Previous injuries (per injury)", "Age $\\times$ load",
+           paste0("*Derived:* training load (per level), at age ", ages_der)),
+  `Estimate (SE)` = sprintf("%.3f (%.3f)", c(cs[, 1], der[, "est"]), c(cs[, 2], der[, "se"])),
+  `exp(estimate)` = f2(c(exp(cs[, 1]), der[, "OR"])),
+  `95% CI` = ci_txt(c(exp(ci[, 1]), der[, "lower"]), c(exp(ci[, 2]), der[, "upper"])),
+  p = fmt_p(c(cs[, 4], der[, "p"])),
+  check.names = FALSE, row.names = NULL)
+
+# Apply the model to Ashford's squad
+players$fit <- fitted(m5)
+ash      <- players[players$team == "Ashford United", ]
+ash_obs  <- sum(ash$injured)
+ash_exp  <- sum(ash$fit)
+ash_old  <- ash[ash$age >= 29, ]
+top      <- ash[which.max(ash$fit), ]
+top_now  <- pred_prob(top$age, top$training_load, top$prev_injuries)
+top_up   <- pred_prob(top$age, top$training_load + 1, top$prev_injuries)
+pos_names <- c(GK = "goalkeeper", DEF = "defender", MID = "midfielder", FWD = "forward")
+ash[order(-ash$fit), c("position", "age", "training_load", "prev_injuries", "injured", "fit")]
+```
+
+The final model is
+$$\text{logit}(\hat\pi) = `r f2(coef(m5)[1])` + `r sprintf("%.3f", coef(m5)[2])`\,(\text{age}-25) + `r sprintf("%.3f", coef(m5)[3])`\,(\text{load}-3) + `r sprintf("%.3f", coef(m5)[4])`\,\text{prev.inj} + `r sprintf("%.3f", coef(m5)[5])`\,(\text{age}-25)(\text{load}-3).$$
+
+
+
+\begingroup\small
+
+```{r table2}
+knitr::kable(tab2, align = "lrrrr",
+             caption = "Final model M5: log-odds estimates with Wald 95% confidence intervals, back-transformed to odds ratios (the intercept row gives baseline odds). The derived rows combine the load and interaction terms using the estimated covariance matrix.")
+```
+
+\endgroup
+
+```{r fig2, fig.width = 7, fig.height = 2.6, fig.cap = "Predicted probability of injury against training load at four ages, for players with no previous injuries (left) and two previous injuries (right). Shaded bands are pointwise 95\\% confidence intervals."}
+par(mfrow = c(1, 2), mar = c(4, 4, 1.2, 0.5), cex = 0.75)
+grid_load <- seq(1, 5, by = 0.1)
+ages_plot <- c(20, 25, 30, 33)
+cols_pred <- c("grey45", "darkgreen", "steelblue", "firebrick")
+for (pv in c(0, 2)) {
+  plot(NA, xlim = c(1, 5), ylim = c(0, 1), xlab = "Training load",
+       ylab = "Predicted P(injury)")
+  for (k in seq_along(ages_plot)) {
+    pp <- pred_prob(ages_plot[k], grid_load, prev = pv)
+    polygon(c(grid_load, rev(grid_load)), c(pp$lower, rev(pp$upper)),
+            col = adjustcolor(cols_pred[k], alpha.f = 0.18), border = NA)
+    lines(grid_load, pp$fit, col = cols_pred[k], lwd = 2)
+  }
+  legend("topleft", legend = paste("Age", ages_plot), col = cols_pred, lwd = 2, bty = "n")
+  mtext(paste0(c("(a)", "(b)")[pv / 2 + 1], " ", pv, " previous injuries"),
+        side = 3, adj = 0, line = 0.2)
+}
+```
+
+## Model fit and diagnostics
+
+```{r diagnostics-build, include = FALSE}
+# ---- Group players with identical covariate patterns (binary residuals are uninformative) ----
+players$one <- 1
+grp <- aggregate(cbind(injured, one) ~ age + training_load + prev_injuries,
+                 data = players, FUN = sum)
+names(grp)[names(grp) == "one"] <- "n"
+grp$age_c  <- grp$age - 25
+grp$load_c <- grp$training_load - 3
+m5g <- glm(cbind(injured, n - injured) ~ age_c * load_c + prev_injuries,
+           family = binomial, data = grp)
+max(abs(coef(m5g) - coef(m5)))     # same estimates as the ungrouped fit
+
+G      <- nrow(grp); p_par <- length(coef(m5g))
+dev_g  <- deviance(m5g); df_g <- df.residual(m5g)
+gof_p  <- 1 - pchisq(dev_g, df_g)                                   # deviance goodness of fit
+phi    <- sum(residuals(m5g, type = "pearson")^2) / df_g            # dispersion estimate
+rs     <- rstandard(m5g)                                            # standardised deviance residuals
+lev    <- hatvalues(m5g)
+cd     <- cooks.distance(m5g)
+cook_thr <- 8 / (G - 2 * p_par)
+lev_thr  <- 2 * p_par / G
+c(n_rs2 = sum(abs(rs) > 2), n_rs3 = sum(abs(rs) > 3), n_lev = sum(lev > lev_thr),
+  n_cook = sum(cd > cook_thr))
+grp[order(-cd)[1:5], ]
+
+# ---- Sensitivity: refit without the two most influential covariate patterns ----
+top2      <- order(cd, decreasing = TRUE)[1:2]
+m5g_drop  <- update(m5g, data = grp[-top2, ])
+cbind(full = coef(m5g), without_top2 = coef(m5g_drop))
+
+# ---- Observed vs expected injuries in the age-band x load-band cells of Figure 1(a) ----
+obs_cell <- with(players, tapply(injured, list(age_band, load_band), sum))
+exp_cell <- with(players, tapply(fit, list(age_band, load_band), sum))
+var_cell <- with(players, tapply(fit * (1 - fit), list(age_band, load_band), sum))
+z_cell   <- (obs_cell - exp_cell) / sqrt(var_cell)
+round(cbind(obs_cell, exp_cell), 1); round(z_cell, 2)
+```
+
+
+
+```{r fig3, fig.width = 7.5, fig.height = 2.3, fig.cap = "Diagnostics for M5 fitted to grouped covariate patterns: (a) standardised deviance residuals against fitted probability; (b) normal QQ-plot; (c) Cook's distances with the $8/(n-2p)$ guideline (dashed); (d) observed against expected injuries in the 12 age $\\times$ load cells of Figure 1(a)."}
+par(mfrow = c(1, 4), mar = c(4, 4, 1.2, 0.4), cex = 0.62)
+plot(fitted(m5g), rs, pch = 19, col = adjustcolor("black", 0.45),
+     xlab = "Fitted probability", ylab = "Std. deviance residual")
+abline(h = c(-2, 0, 2), lty = c(2, 1, 2), col = "grey50")
+mtext("(a)", side = 3, adj = 0, line = 0.2)
+qqnorm(rs, main = "", pch = 19, col = adjustcolor("black", 0.45)); qqline(rs)
+mtext("(b)", side = 3, adj = 0, line = 0.2)
+plot(cd, type = "h", xlab = "Covariate pattern", ylab = "Cook's distance")
+abline(h = cook_thr, lty = 2, col = "firebrick")
+mtext("(c)", side = 3, adj = 0, line = 0.2)
+plot(as.vector(exp_cell), as.vector(obs_cell), pch = 19, xlab = "Expected injuries",
+     ylab = "Observed injuries", xlim = c(0, 26), ylim = c(0, 26))
+abline(0, 1, lty = 2)
+mtext("(d)", side = 3, adj = 0, line = 0.2)
+```
+
