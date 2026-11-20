@@ -1,0 +1,196 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\captionsetup{font=normalsize, labelfont=bf}
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+\setlist{itemsep=0.15em, topsep=0.3em}
+
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
+        commentstyle=\color{gray}, columns=fullflexible}
+
+
+\begin{document}
+\begin{center}
+  {\Large\bfseries Midland Premier League 2023/24: A Statistical Analysis for Ashford United FC\par}
+  \vspace{0.4em}
+  Group M \quad|\quad [Group names] \quad|\quad Nov. 2027
+\end{center}
+
+
+
+\section{Introduction}
+
+Ashford United FC has commissioned Meridian Analytics to analyse data from the
+2023/24 Midland Premier League season. The data are simulated. They consist of
+records for 620 players across the league's 24 clubs and the results of Ashford
+United's 46 league matches. Our aim is to identify and quantify relationships in
+these data that are useful to the club. We address three questions:
+\begin{enumerate}[label=\textbf{Q\arabic*.}, leftmargin=2.6em]
+  \item \textbf{...}
+
+  \item \textbf{...} 
+  
+  \item \textbf{...}
+  
+\end{enumerate}
+
+
+
+\section{Data and exploratory analysis}\label{sec:data}
+
+Table~\ref{tab:vars} lists the variables in the two datasets. Neither dataset
+contains missing values or duplicated records.
+
+\begin{table}[ht]
+\centering
+\caption{Variables in the players dataset (left; one row per player, 24--28
+players per club) and the matches dataset (right; one row per Ashford United
+match). Ranges are given in brackets.}
+\label{tab:vars}
+\begin{minipage}[t]{0.55\textwidth}
+\vspace{0pt}
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Players} ($n = 620$)}\\
+\midrule
+\texttt{team}            & Club (24 clubs) \\
+\texttt{position}        & GK, DEF, MID or FWD \\
+\texttt{age}             & Age in years (17--36) \\
+\texttt{minutes\_played} & Minutes played (105--3960) \\
+\texttt{training\_load}  & Weekly intensity, 1 (low) to 5 \\
+\texttt{prev\_injuries}  & Injuries in previous 3 seasons (0--4) \\
+\texttt{bmi}             & Body mass index (19.0--27.9) \\
+\texttt{injured}         & Injured in season: 1 yes, 0 no \\
+\bottomrule
+\end{tabularx}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Matches} ($n = 46$)}\\
+\midrule
+\texttt{home\_away}      & Home or Away \\
+\texttt{goals\_scored}   & By Ashford (0--8) \\
+\texttt{goals\_conceded} & By Ashford (0--3) \\
+\texttt{opponent\_rank}  & Final league position of opponent (1--24) \\
+\bottomrule
+\end{tabularx}
+\end{minipage}
+\end{table}
+
+Ashford United played each of the other 23 clubs once at home and once away.
+Rank~9 is the only rank missing from the opponents, so Ashford finished ninth.
+Because every opponent appears once at each venue, the effects of venue and
+opponent strength can be estimated separately. In the players data, 16 players
+(12 of them goalkeepers) recorded the maximum of 3960 minutes, so
+\texttt{minutes\_played} is capped.
+
+\subsection{Ashford United's matches}
+Ashford United's results differed markedly by venue. At home they won 15, drew
+5 and lost 3 of 23 matches. Away they won 7, drew 6 and lost 10. A chi-squared
+test of independence gives $X^2 = 6.77$ on 2 degrees of freedom ($p = 0.034$),
+so at the 5\% level we reject the hypothesis that result and venue are
+unrelated. Ashford averaged 1.74 goals per match at home and 0.87 away. They
+conceded 0.57 per match at home and 1.09 away.
+
+Figure~\ref{fig:goals} shows that Ashford tended to score more and concede fewer
+goals against clubs lower in the table. The Spearman correlations with opponent
+rank are $0.29$ for goals scored and $-0.32$ for goals conceded. These are
+modest associations, since goals in a single match are highly variable. The
+fitted curves for the two venues have similar slopes, which suggests that the
+association with opponent strength does not depend on venue. We test this in
+Section~4.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig1_goals_vs_rank.pdf}
+\caption{Goals scored (left) and conceded (right) by Ashford United in each
+match, against the opponent's final league rank. Points are separated slightly
+in the vertical direction to show repeated values. The lines are Poisson
+regression curves fitted separately for each venue, shown as a visual guide.}
+\label{fig:goals}
+\end{figure}
+
+Both goal counts are small whole numbers, mostly 0 to 2, which suggests a
+Poisson model, in which the variance equals the mean. For goals conceded the
+variance (0.64) is slightly below the mean (0.83). For goals scored the
+variance (1.99) is well above the mean (1.30). This is almost entirely due to
+one match, an 8--0 home win against the bottom club. Without it, the variance
+(1.00) and mean (1.16) are close. A preliminary Poisson fit shows that this
+match has a large influence on the estimated effects, so Section~4 reports the
+analysis with and without it.
+
+\subsection{Player injuries}
+Of the 620 players, 115 (18.5\%) were injured during the season.
+Figure~\ref{fig:injury} shows how the proportion injured varies with four
+characteristics. It rises steadily with the number of previous injuries, from
+11\% of players with none to 43\% of those with four. It is about 26\% for
+training loads of 4 or 5, against 11--16\% for loads of 1 to 3. It is 34\% for
+players over 29, against about 14\% for those aged 25 or under. Chi-squared
+tests for a linear trend in proportions give strong evidence of an increasing
+trend for each of these variables ($X^2 = 35.1$, $11.4$ and $13.3$ on 1 degree
+of freedom; all $p < 0.001$). Goalkeepers have the highest proportion (27\%),
+but there are only 62 of them, and a chi-squared test gives no evidence of an
+association between position and injury ($X^2 = 4.38$ on 3 degrees of freedom,
+$p = 0.22$). Injured and uninjured players had similar minutes played and BMI.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig2_injury_rates.pdf}
+\caption{Proportion of players injured during the season by previous injuries,
+training load, age group and position, with 95\% confidence intervals.
+%%%
+The number above each interval is the group size. The dashed line is the overall
+proportion (18.5\%).}
+\label{fig:injury}
+\end{figure}
+
+The explanatory variables are close to uncorrelated: the largest correlation is
+0.21, between training load and minutes played. Collinearity is therefore not
+a concern when these variables are modelled together. Injury proportions vary
+across clubs from 8\% to 44\%, with Ashford at 16\%. A chi-squared test gives
+little evidence of a difference between clubs ($X^2 = 25.8$ on 23 degrees of
+freedom). Players at the same club may still
+share unmeasured conditions, such as facilities and medical staff, so in Q1 we
+check whether a club effect changes the conclusions.
+
+
+\section{Q1:}
+
+
+\section{Q2:}
+
+
+\section{Q3:}
+
+
+\section{Conclusions and limitations}
+
+
+
+\clearpage
+\appendix
+\section*{Appendix: R code}
+
+Shared workspace: \url{[link to shared workspace]}
+
+% Export the R code from the Rmd with knitr::purl("EDA.Rmd") (and the analysis
+% files) and include it here, e.g.
+% \lstinputlisting[language=R]{EDA.R}
+\textit{[Complete R code to be inserted.]}
+
+\end{document}
